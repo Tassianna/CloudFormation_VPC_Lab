@@ -1,0 +1,1 @@
+This is the full CloudFormation code for automating the creation of two VPCs and a peering connection of them in aws!

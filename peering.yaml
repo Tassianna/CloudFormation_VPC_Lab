@@ -1,0 +1,427 @@
+  Resources:
+  #--------------------Create VPC1 & VPC2-----------------------
+
+  
+  VPC1:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      Tags: 
+        - Key: Name
+          Value: vpc_1
+
+  VPC2:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.11.0.0/16
+      Tags: 
+        - Key: Name
+          Value: vpc_2
+
+#Subnets:
+  SubnetPublicVP1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 10.0.1.0/24
+      VpcId: !Ref VPC1
+      Tags: 
+        - Key: Name
+          Value: public-subnet-1
+  SubnetPrivateVP1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 10.0.2.0/24
+      VpcId: !Ref VPC1
+      Tags: 
+        - Key: Name
+          Value: private-subnet-1
+      
+  SubnetPublicVP2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 10.11.1.0/24
+      VpcId: !Ref VPC2
+      Tags: 
+        - Key: Name
+          Value: public-subnet-2
+  SubnetPrivateVP2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 10.11.2.0/24
+      VpcId: !Ref VPC2
+      Tags: 
+        - Key: Name
+          Value: private-subnet-2
+
+#Internet Gateways and attachment with VPCs:
+  InternetGatewayVPC1:  
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags: 
+        - Key: Name
+          Value: IG-VPC1
+  InterGatewayAttachmentVPC1:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGatewayVPC1
+      VpcId: !Ref VPC1
+  
+  InternetGatewayVPC2:  
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags: 
+        - Key: Name
+          Value: IG-VPC2
+  InterGatewayAttachmentVPC2:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGatewayVPC2
+      VpcId: !Ref VPC2
+
+
+#NAT Gateway and elastic IPs:
+  NATVPC1:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt 'EIPVPC1.AllocationId'
+      SubnetId: !Ref SubnetPublicVP1
+      Tags: 
+        - Key: Name
+          Value: ngw-vpc1
+  EIPVPC1:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: eip-nat-vpc1
+
+  NATVPC2:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt 'EIPVPC2.AllocationId'
+      SubnetId: !Ref SubnetPublicVP2
+      Tags: 
+        - Key: Name
+          Value: ngw-vpc2   
+  EIPVPC2:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: eip-nat-vpc2   
+
+
+#route tables:
+  PrivateRouteTableVPC1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags: 
+        - Key: Name
+          Value: private-route-table-vpc1
+      VpcId: !Ref VPC1
+
+  PublicRouteTableVPC1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags: 
+        - Key: Name
+          Value: public-route-table-vpc1
+      VpcId: !Ref VPC1
+
+  PublicRouteTableVPC2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags: 
+        - Key: Name
+          Value: public-route-table-vpc2
+      VpcId: !Ref VPC2
+
+  PrivateRouteTableVPC2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags: 
+        - Key: Name
+          Value: private-route-table-vpc2
+      VpcId: !Ref VPC2
+
+
+#routes for route tables:
+  PublicRouteVPC1:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref InternetGatewayVPC1
+      #InstanceId: String
+      RouteTableId: !Ref PublicRouteTableVPC1
+      #VpcPeeringConnectionId: String
+  PrivateRouteVPC1:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: '0.0.0.0/0'
+      #InstanceId: String
+      NatGatewayId: !Ref NATVPC1
+      RouteTableId: !Ref PrivateRouteTableVPC1
+      #VpcPeeringConnectionId: String
+
+  PublicRouteVPC2:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref InternetGatewayVPC2
+      #InstanceId: String
+      RouteTableId: !Ref PublicRouteTableVPC2
+      #VpcPeeringConnectionId: String
+  PrivateRouteVPC2:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: '0.0.0.0/0'
+      #InstanceId: String
+      NatGatewayId: !Ref NATVPC2
+      RouteTableId: !Ref PrivateRouteTableVPC2
+      #VpcPeeringConnectionId: String
+
+
+#route tables association with subnets
+  SARouteTablePublicVPC1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTableVPC1
+      SubnetId: !Ref SubnetPublicVP1
+  SARouteTablePrivateVPC1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableVPC1
+      SubnetId: !Ref SubnetPrivateVP1
+
+  SARouteTablePublicVPC2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTableVPC2
+      SubnetId: !Ref SubnetPublicVP2
+  SARouteTablePrivateVPC2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableVPC2
+      SubnetId: !Ref SubnetPrivateVP2
+
+
+
+
+#--------------------EC2 Instances for VPC1--------------------#
+
+  EC2PublicVPC1: 
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0e86e20dae9224db8
+      InstanceType: t2.micro
+      SecurityGroupIds:
+        - !Ref SecGroupEc2publicVPC1
+      KeyName: !Ref PublicKeyPairVPC1
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 25
+      SubnetId: !Ref SubnetPublicVP1
+      Tags:
+        - Key: Name
+          Value: public-vpc1
+
+  EC2PrivateVPC1: 
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0e86e20dae9224db8
+      InstanceType: t2.micro
+      SecurityGroupIds:
+        - !Ref SecGroupEc2privateVPC1
+      KeyName: !Ref PrivateKeyPairVPC1
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 25
+      SubnetId: !Ref SubnetPrivateVP1
+      Tags:
+        - Key: Name
+          Value: private-vpc1
+
+
+#Security Group for Public Instance:
+  SecGroupEc2publicVPC1:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Create secgroup for public instance allowing ssh and http from the internet"
+      SecurityGroupEgress: 
+        #Outbound rule to allow all traffic:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress: 
+        #Inbound rule allow ssh and http from anywhere:
+        - CidrIp: 0.0.0.0/0
+          FromPort: 22
+          IpProtocol: tcp
+          ToPort: 22
+        - CidrIp: 0.0.0.0/0
+          FromPort: 80
+          IpProtocol: tcp
+          ToPort: 80
+      VpcId: !Ref VPC1
+      GroupName: "secGroupPublicVPC1"
+
+#Security Group for Private Instance:
+  SecGroupEc2privateVPC1:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Create secgroup for private instance allowing ssh and http from public subnet"
+      SecurityGroupEgress: 
+        #Outbound rule to allow all traffic:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress: 
+        #Inbound rule allow http and ssh ONLY from public ip:
+        - CidrIp: !GetAtt SubnetPublicVP1.CidrBlock    #public_subnetIP cidr block
+          FromPort: 22
+          IpProtocol: tcp
+          ToPort: 22
+        - CidrIp: !GetAtt SubnetPublicVP1.CidrBlock    #public_subnetIP cidr block
+          FromPort: 80
+          IpProtocol: tcp
+          ToPort: 80
+      VpcId: !Ref VPC1
+      GroupName: "secGroupPrivateVPC1"
+  
+#Key pairs:
+  PublicKeyPairVPC1:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: public-vpc1
+  PrivateKeyPairVPC1:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: private-vpc1
+  
+
+
+#--------------------EC2 Instances for VPC2--------------------#
+
+  EC2PublicVPC2: 
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0e86e20dae9224db8
+      InstanceType: t2.micro
+      SecurityGroupIds:
+        - !Ref SecGroupEc2publicVPC2
+      KeyName: !Ref PublicKeyPairVPC2
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 25
+      SubnetId: !Ref SubnetPublicVP2
+      Tags:
+        - Key: Name
+          Value: public-vpc2
+
+  EC2PrivateVPC2: 
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0e86e20dae9224db8
+      InstanceType: t2.micro
+      SecurityGroupIds:
+        - !Ref SecGroupEc2privateVPC2
+      KeyName: !Ref PrivateKeyPairVPC2
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 25
+      SubnetId: !Ref SubnetPrivateVP2
+      Tags:
+        - Key: Name
+          Value: private-vpc2
+
+
+#Security Group for Public Instance:
+  SecGroupEc2publicVPC2:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Create secgroup for public instance allowing ssh and http from the internet"
+      SecurityGroupEgress: 
+        #Outbound rule to allow all traffic:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress: 
+        #Inbound rule allow ssh and http from anywhere:
+        - CidrIp: 0.0.0.0/0
+          FromPort: 22
+          IpProtocol: tcp
+          ToPort: 22
+        - CidrIp: 0.0.0.0/0
+          FromPort: 80
+          IpProtocol: tcp
+          ToPort: 80
+      VpcId: !Ref VPC2
+      GroupName: "secGroupPublicVPC2"
+
+#Security Group for Private Instance:
+  SecGroupEc2privateVPC2:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Create secgroup for private instance allowing ssh and http from public subnet"
+      SecurityGroupEgress: 
+        #Outbound rule to allow all traffic:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress: 
+        #Inbound rule allow http and ssh ONLY from public ip:
+        - CidrIp: !GetAtt SubnetPublicVP2.CidrBlock    #public_subnetIP cidr block
+          FromPort: 22
+          IpProtocol: tcp
+          ToPort: 22
+        - CidrIp: !GetAtt SubnetPublicVP2.CidrBlock    #public_subnetIP cidr block
+          FromPort: 80
+          IpProtocol: tcp
+          ToPort: 80
+      VpcId: !Ref VPC2
+      GroupName: "secGroupPrivateVPC2"
+  
+#Key pairs:
+  PublicKeyPairVPC2:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: public-vpc2
+  PrivateKeyPairVPC2:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: private-vpc2
+
+
+
+#------------------------Peering-----------------------------#
+
+  PeeringVPCs:
+    Type: AWS::EC2::VPCPeeringConnection
+    Properties:
+      PeerVpcId: !Ref VPC1
+      VpcId: !Ref VPC2
+
+  RoutePeeringVPC1toVPC2:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: !GetAtt SubnetPublicVP2.CidrBlock
+      RouteTableId: !Ref PublicRouteTableVPC1
+      VpcPeeringConnectionId: !Ref PeeringVPCs
+  
+  RoutePeeringVPC2toVPC1:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: !GetAtt SubnetPublicVP1.CidrBlock
+      RouteTableId: !Ref PublicRouteTableVPC2
+      VpcPeeringConnectionId: !Ref PeeringVPCs
+
